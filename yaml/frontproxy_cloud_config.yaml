@@ -1,0 +1,99 @@
+#cloud-config
+timezone: Europe/Moscow
+repo_update: true
+packages:
+  - htop
+  - nfs-common
+  - syslinux-utils
+  - nano
+  - wget 
+  - autoconf 
+  - cron 
+  - iputils-ping 
+  - dpkg-dev 
+  - zip 
+  - unzip 
+  - curl 
+  - rsync 
+  - git 
+ssh_pwauth: no
+runcmd:
+  - mkdir -p /mnt/rrrnfs
+  - mkdir -p /home/.aws
+  - mkdir -p /var/log/fluentbit
+  - mkdir -p /home/fluent-bit
+  - mkdir -p /home/s3-scripts
+  - mkdir -p /home/www/xxxxproxy
+  - mkdir -p /home/www/xxxxproxynginx
+write_files:
+  - content: |
+      <?php
+      echo('hello gggggggggg!');
+      ?>
+    path: /home/www/xxxxproxy/health.php
+  - content: |
+      <?php
+      define ('XXXXXA', true);
+      ?>
+    path: /home/www/xxxxproxy/server.php
+  - content: |
+      [SERVICE]
+          Flush         1
+          Log_File      /var/log/fluentbit/fluentbit.log
+          Log_Level     error
+          Daemon        off
+          Parsers_File  /fluent-bit/etc/parsers.conf
+      [FILTER]
+          Name parser
+          Match xxxxproxy.app.logs
+          Key_Name log
+          Parser json_parser
+          Reserve_Data On
+      [INPUT]
+          Name              forward
+          Listen            0.0.0.0
+          Port              24224
+          Buffer_Chunk_Size 1M
+          Buffer_Max_Size   6M
+      [OUTPUT]
+          Name            yc-logging
+          Match           *
+          group_id        ${YC_GROUP_ID}
+          message_key     log
+          level_key       severity
+          default_level   INFO
+          authorization   instance-service-account
+    path: /home/fluent-bit.conf
+  - content: |
+      [PARSER]
+          Name   nginx_parser
+          Format regex
+          Regex ^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$
+          Time_Key time
+          Time_Format %d/%b/%Y:%H:%M:%S %z
+      [PARSER]
+          Name         json_parser
+          Format       json
+          Time_Key     time
+          Time_Format  %Y-%m-%dT%H:%M:%S.%L
+          Time_Keep    On
+          # Command      |  Decoder | Field | Optional Action
+          # =============|==================|=================
+          Decode_Field_As   escaped_utf8    log    do_next
+          Decode_Field_As   json       log
+    path: /home/parsers.conf
+  - content: |
+      [default]
+      aws_access_key_id = asdadsadsadasdasd
+      aws_secret_access_key = asdsasassss
+    path: /home/.aws/credentials
+  - content: |
+      [default]
+      region = ru-central1
+    path: /home/.aws/config
+users:
+  - name: fffffuser
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - "ssh-rsa Ax= xxxx@xxx.ru"

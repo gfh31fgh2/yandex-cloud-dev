@@ -1,0 +1,348 @@
+#cloud-config
+ssh_pwauth: no
+users:
+  - name: xxx
+    groups: sudo
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - "ssh-rsa AAx xxx@xxx.ru"
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+packages:
+  - htop
+  - build-essential
+  - syslinux-utils
+  - software-properties-common
+  - wget
+  - zip
+  - unzip
+  - net-tools
+  - autoconf
+  - cron
+  - iputils-ping
+  - dpkg-dev
+  - curl
+  - rsync
+  - git
+  - ssh
+  - nano
+  - bc
+  - locales
+  - python3
+  - python3-pip
+  - python3-dev
+  - snapd
+  - docker.io
+  # - podman
+
+runcmd:
+  - python3 -m pip install --upgrade pip
+  - mkdir -p /home/prepare
+  - /bin/sh /home/entry.sh
+  - printf "*/30 * * * * root /bin/sh /home/prepare/1.sh 2>&1 | /usr/bin/logger -t checkSyslog" > /etc/cron.d/checkSyslog
+
+write_files:
+  - content: |
+      [PARSER]
+          Name   apache
+          Format regex
+          Regex  ^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$
+          Time_Key time
+          Time_Format %d/%b/%Y:%H:%M:%S %z
+
+      [PARSER]
+          Name   apache2
+          Format regex
+          Regex  ^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>.*)")?$
+          Time_Key time
+          Time_Format %d/%b/%Y:%H:%M:%S %z
+
+      [PARSER]
+          Name   apache_error
+          Format regex
+          Regex  ^\[[^ ]* (?<time>[^\]]*)\] \[(?<level>[^\]]*)\](?: \[pid (?<pid>[^\]]*)\])?( \[client (?<client>[^\]]*)\])? (?<message>.*)$
+
+      [PARSER]
+          Name   nginx
+          Format regex
+          Regex ^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")
+          Time_Key time
+          Time_Format %d/%b/%Y:%H:%M:%S %z
+
+      [PARSER]
+          # https://rubular.com/r/IhIbCAIs7ImOkc
+          Name        k8s-nginx-ingress
+          Format      regex
+          Regex       ^(?<host>[^ ]*) - (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*) "(?<referer>[^\"]*)" "(?<agent>[^\"]*)" (?<request_length>[^ ]*) (?<request_time>[^ ]*) \[(?<proxy_upstream_name>[^ ]*)\] (\[(?<proxy_alternative_upstream_name>[^ ]*)\] )?(?<upstream_addr>[^ ]*) (?<upstream_response_length>[^ ]*) (?<upstream_response_time>[^ ]*) (?<upstream_status>[^ ]*) (?<reg_id>[^ ]*).*$
+          Time_Key    time
+          Time_Format %d/%b/%Y:%H:%M:%S %z
+
+      [PARSER]
+          Name   json
+          Format json
+          Time_Key time
+          Time_Format %d/%b/%Y:%H:%M:%S %z
+
+      [PARSER]
+          Name         docker
+          Format       json
+          Time_Key     time
+          Time_Format  %Y-%m-%dT%H:%M:%S.%L
+          Time_Keep    On
+          # --
+          # Since Fluent Bit v1.2, if you are parsing Docker logs and using
+          # the Kubernetes filter, it's not longer required to decode the
+          # 'log' key.
+          #
+          # Command      |  Decoder | Field | Optional Action
+          # =============|==================|=================
+          #Decode_Field_As    json     log
+
+      [PARSER]
+          Name        docker-daemon
+          Format      regex
+          Regex       time="(?<time>[^ ]*)" level=(?<level>[^ ]*) msg="(?<msg>[^ ].*)"
+          Time_Key    time
+          Time_Format %Y-%m-%dT%H:%M:%S.%L
+          Time_Keep   On
+
+      [PARSER]
+          Name        syslog-rfc5424
+          Format      regex
+          Regex       ^\<(?<pri>[0-9]{1,5})\>1 (?<time>[^ ]+) (?<host>[^ ]+) (?<ident>[^ ]+) (?<pid>[-0-9]+) (?<msgid>[^ ]+) (?<extradata>(\[(.*?)\]|-)) (?<message>.+)$
+          Time_Key    time
+          Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+          Time_Keep   On
+
+      [PARSER]
+          Name        syslog-rfc3164-local
+          Format      regex
+          Regex       ^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$
+          Time_Key    time
+          Time_Format %b %d %H:%M:%S
+          Time_Keep   On
+
+      [PARSER]
+          Name        syslog-rfc3164
+          Format      regex
+          Regex       /^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
+          Time_Key    time
+          Time_Format %b %d %H:%M:%S
+          Time_Keep   On
+
+      [PARSER]
+          Name    mongodb
+          Format  regex
+          Regex   ^(?<time>[^ ]*)\s+(?<severity>\w)\s+(?<component>[^ ]+)\s+\[(?<context>[^\]]+)]\s+(?<message>.*?) *(?<ms>(\d+))?(:?ms)?$
+          Time_Format %Y-%m-%dT%H:%M:%S.%L
+          Time_Keep   On
+          Time_Key time
+
+      [PARSER]
+          # https://rubular.com/r/3fVxCrE5iFiZim
+          Name    envoy
+          Format  regex
+          Regex ^\[(?<start_time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)? (?<protocol>\S+)" (?<code>[^ ]*) (?<response_flags>[^ ]*) (?<bytes_received>[^ ]*) (?<bytes_sent>[^ ]*) (?<duration>[^ ]*) (?<x_envoy_upstream_service_time>[^ ]*) "(?<x_forwarded_for>[^ ]*)" "(?<user_agent>[^\"]*)" "(?<request_id>[^\"]*)" "(?<authority>[^ ]*)" "(?<upstream_host>[^ ]*)"  
+          Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+          Time_Keep   On
+          Time_Key start_time
+
+      [PARSER]
+          # http://rubular.com/r/tjUt3Awgg4
+          Name cri
+          Format regex
+          Regex ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<message>.*)$
+          Time_Key    time
+          Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+
+      [PARSER]
+          Name    kube-custom
+          Format  regex
+          Regex   (?<tag>[^.]+)?\.?(?<pod_name>[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)_(?<namespace_name>[^_]+)_(?<container_name>.+)-(?<docker_id>[a-z0-9]{64})\.log$
+    path: /home/parsers.conf
+    owner: root:root
+    permissions: '0644'
+  - content: |
+      [SERVICE]
+          Flush         1
+          Log_File      /var/log/fluentbit/fluentbit.log
+          Log_Level     error
+          Daemon        off
+          Parsers_File  /etc/fluent-bit/parsers.conf
+          Plugins_File  /etc/fluent-bit/plugins.conf
+      [INPUT]
+          Name              tail
+          Parser            syslog-rfc3164-local
+          Path              /var/log/syslog
+          Tag               xxx.syslog
+          Refresh_Interval  10
+
+      [OUTPUT]
+          Name            yc-logging
+          Match           xxx.*
+          group_id        e239fafi39lmtfk4pm9l
+          message_key     log
+          level_key       severity
+          default_level   INFO
+          authorization   instance-service-account
+    path: /home/fluent-bit.conf
+    owner: root:root
+    permissions: '0644'
+  - content: |
+      [PLUGINS]
+          Path /usr/lib/fluent-bit/yc-logging.so
+    path: /home/plugins.conf
+    owner: root:root
+    permissions: '0644'
+  - content: |
+      #!/bin/sh
+
+      SIZEM=`du /var/log/syslog --block-size=1M | cut -f1`
+
+      if [ $SIZEM -gt 80 ]; then
+        echo "[checkSyslogSize] syslog is greater that 80Mb, we need to rotate it!"
+        logger "[checkSyslogSize]syslog is greater that 80Mb, we need to rotate it!"
+        logrotate -f /etc/logrotate.conf
+      else
+        echo "[checkSyslogSize] syslog is $SIZEM Mb, all OK!"
+        logger "[checkSyslogSize]syslog is $SIZEM Mb, all OK!"
+      fi
+    path: /home/checkSyslog.sh
+    owner: root:root
+    permissions: '0644'
+  - content: |
+      ssh-rsa Ax xxxx@xxx.ru
+    path: /home/xxxxx_gitlabci.pub
+    owner: root:root
+    permissions: '0600'
+  - content: |
+      FROM quay.io/keycloak/keycloak:latest as builder
+      # Enable health and metrics support
+      ENV KC_HEALTH_ENABLED=true
+      ENV KC_METRICS_ENABLED=true
+      ENV KC_LOG_LEVEL=DEBUG
+      # Configure a database vendor
+      ENV KC_DB=dev-file
+      WORKDIR /opt/keycloak
+      RUN /opt/keycloak/bin/kc.sh build
+
+      FROM quay.io/keycloak/keycloak:latest
+      COPY --from=builder /opt/keycloak/ /opt/keycloak/
+
+      # change these values to point to a running postgres instance
+      # ENV KC_DB_URL=localhost
+      # ENV KC_DB_USERNAME=kc_db_user
+      # ENV KC_DB_PASSWORD=kc_db_pass
+      ENV KC_HOSTNAME=kk.xxxx.com
+      ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
+    path: /home/Dockerfile
+    owner: root:root
+    permissions: '0644'
+  - content: |
+      -----BEGIN CERTIFICATE-----
+      MIx
+      -----END CERTIFICATE-----
+    path: /home/cf.pem
+    owner: root:root
+    permissions: '0600'
+  - content: |
+      -----BEGIN RSA PRIVATE KEY-----
+      MIx
+      -----END RSA PRIVATE KEY-----
+    path: /home/cf.key
+    owner: root:root
+    permissions: '0600'
+  - content: |
+      # fluentd-bit
+      cd /home
+      wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.17_amd64.deb
+      sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2.17_amd64.deb
+      curl https://packages.fluentbit.io/fluentbit.key | gpg --dearmor > /usr/share/keyrings/fluentbit-keyring.gpg
+      echo "deb [signed-by=/usr/share/keyrings/fluentbit-keyring.gpg] https://packages.fluentbit.io/ubuntu/focal focal main" >> /etc/apt/sources.list
+      apt-get update
+      apt-get -y install fluent-bit
+
+      # need to create user for gitlab deploy processes
+      # useradd -m -p <encryptedPassword> -s /bin/bash <user>
+      mv /home/xxxxx_gitlabci.pub /home/prepare/
+      useradd -m -p "xxx" -s /bin/bash xxxgitlabuser
+      mkdir -p "/home/xxxgitlabuser/.ssh"
+      cp "/home/prepare/xxxxx_gitlabci.pub" "/home/xxxgitlabuser/.ssh/authorized_keys"
+      chown xxxgitlabuser:xxxgitlabuser "/home/xxxgitlabuser/.ssh"
+      chown xxxgitlabuser:xxxgitlabuser "/home/xxxgitlabuser/.ssh/authorized_keys"
+      sudo adduser xxxgitlabuser sudo
+      echo "xxxgitlabuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/90-cloud-init-users
+
+      ln -snf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+      echo "Europe/Moscow" > /etc/timezone
+      mkdir -p ~/.ssh/
+      ssh-keyscan "gitlab.com" >> ~/.ssh/known_hosts
+      
+      mv /home/fluent-bit.conf /home/prepare/
+      mv /home/plugins.conf /home/prepare/
+      mv /home/parsers.conf /home/prepare/
+
+      systemctl daemon-reload
+
+      # ------------ Yandex Cloud Logs ---------
+      # go new version go1.19 - need for ubuntu20
+      #mkdir -p /home/prepare/goinstall
+      #cd /home/prepare/goinstall
+      #wget https://go.dev/dl/go1.19.linux-amd64.tar.gz 
+      #mv go /usr/local
+      #update-alternatives --install "/usr/bin/go" "go" "/usr/local/go/bin/go" 0
+      #update-alternatives --set go /usr/local/go/bin/go
+      #snap install go  --classic
+      snap install go --channel=1.19/stable --classic
+
+      # yandex plugin
+      cd /home/prepare/
+      git clone https://github.com/yandex-cloud/fluent-bit-plugin-yandex.git
+      cd fluent-bit-plugin-yandex/
+
+      #go mod tidy
+      #GOCACHE='/tmp' GOMODCACHE=/root/go/pkg/mod fluent_bit_version=1.9.7 plugin_version=dev fluent_bit_version=1.9.7 plugin_version=dev CGO_ENABLED=1 /usr/bin/go build -buildmode=c-shared -o ./yc-logging.so -ldflags "-X main.PluginVersion=${plugin_version}" -ldflags "-X main.FluentBitVersion=${fluent_bit_version}"
+
+      /snap/bin/go mod tidy
+      GOCACHE='/tmp' GOMODCACHE=/root/go/pkg/mod fluent_bit_version=1.9.7 plugin_version=dev fluent_bit_version=1.9.7 plugin_version=dev CGO_ENABLED=1 /snap/bin/go  build -buildmode=c-shared -o ./yc-logging.so -ldflags "-X main.PluginVersion=${plugin_version}" -ldflags "-X main.FluentBitVersion=${fluent_bit_version}"
+      mkdir -p /usr/lib/fluent-bit/
+      cp /home/prepare/fluent-bit-plugin-yandex/yc-logging.so /usr/lib/fluent-bit/yc-logging.so
+
+      # fluent configs
+      mkdir -p /var/log/fluentbit/
+      rm -f /etc/fluent-bit/plugins.conf
+      rm -f /etc/fluent-bit/fluent-bit.conf
+      rm -f /etc/fluent-bit/parsers.conf
+      mv /home/prepare/plugins.conf /etc/fluent-bit/
+      mv /home/prepare/fluent-bit.conf /etc/fluent-bit/
+      mv /home/prepare/parsers.conf /etc/fluent-bit/
+      systemctl restart fluent-bit
+
+      mv /home/checkSyslog.sh /home/prepare/checkSyslog.sh
+
+      # - Its monitoring agent for yandex monitoring
+      wget -O - https://monitoring.api.cloud.yandex.net/monitoring/v2/unifiedAgent/config/install.sh | bash
+
+      # ------------ Keycloak install ---------
+      mkdir -p /home/prepare/keycloak
+      # cloudflare certificates for *.xxx.com
+      mv /home/cf.key /home/prepare/keycloak/
+      mv /home/cf.pem /home/prepare/keycloak/
+      # image for keycloak
+      mv /home/Dockerfile /home/prepare/
+      cd /home/prepare
+      docker build . -t xxxkeycloak
+      docker run -d --name mykeycloak -p 8443:8443 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=xxxpass -v /home/prepare/keycloak:/home/prepare/ xxxkeycloak --verbose start --optimized --https-certificate-file=/home/prepare/cf.pem --https-certificate-key-file=/home/prepare/cf.key
+      # apt install podman
+      # podman run --name keycloak -p 8180:8180 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=xxxpass quay.io/keycloak/keycloak:latest start-dev --http-port 8180 --http-relative-path /auth
+      # podman run --name keycloak -p 3000:8443 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=xxxpass quay.io/keycloak/keycloak:latest start --optimized --hostname-port=3000 --http-relative-path /auth
+      # podman run --name keycloak -p 3000:8180 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=xxxpass quay.io/keycloak/keycloak:latest start --optimized --http-port 3000 --hostname=kk.xxx.com
+      # podman run --name keycloak -p 3000:8180 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=xxxpass quay.io/keycloak/keycloak:latest start --optimized --http-port 3000 --hostname=kk.xxx.com --https-certificate-file=/home/prepare/cf.pem --https-certificate-key-file=/home/prepare/cf.key
+      # podman run --name keycloak -p 3000:8180 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=xxxpass -e KC_HTTPS_CERTIFICATE_FILE="/home/prepare/cf.pem" -e KC_HTTPS_CERTIFICATE_KEY_FILE="/home/prepare/cf.key" -e KC_HOSTNAME="kk.xxxx.com" -e KEYCLOAK_HTTPS_PORT=8180  quay.io/keycloak/keycloak:latest start --optimized 
+      # docker run -d --name mykeycloak -p 8443:8443 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=xxxpass -v /home/prepare/keycloak:/home/prepare/ xxxkeycloak --verbose start --optimized --https-certificate-file=/home/prepare/cf.pem --https-certificate-key-file=/home/prepare/cf.key
+    path: /home/entry.sh
+    owner: root:root
+    permissions: '0755'
+  

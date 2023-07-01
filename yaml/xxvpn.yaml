@@ -1,0 +1,79 @@
+#cloud-config
+ssh_pwauth: no
+users:
+  - name: xxx
+    groups: sudo
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - "ssh-rsa AAxxx xxx@xx.ru"
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+packages:
+  - htop
+  - build-essential
+  - syslinux-utils
+  - software-properties-common
+  - wget
+  - zip
+  - unzip
+  - net-tools
+  - autoconf
+  - cron
+  - iputils-ping
+  - dpkg-dev
+  - curl
+  - rsync
+  - git
+  - ssh
+  - nano
+  - bc
+  - locales
+  - python3
+  - python3-pip
+  - python3-dev
+  - snapd
+  - docker.io
+  - docker-compose
+
+runcmd:
+  - python3 -m pip install --upgrade pip
+  - mkdir -p /home/tt/xxvpn
+  - /bin/sh /home/entry.sh
+  # - printf "*/30 * * * * root /bin/sh /home/prepare/1.sh 2>&1 | /usr/bin/logger -t checkSyslog" > /etc/cron.d/checkSyslog
+
+write_files:
+  - content: |
+      version: '3'
+
+      services:
+        pritunl:
+          image: 'jippi/pritunl:latest'
+          privileged: true
+          ports:
+            - '80:80'
+            - '443:443'
+            - '1194:1194/udp'
+            - '1194:1194/tcp'
+          volumes:
+            - 'pritunl_data:/var/lib/pritunl'
+            - 'pritunl_db:/var/lib/mongodb'
+
+      volumes:
+        pritunl_data:
+          driver: local
+        pritunl_db:
+          driver: local
+    path: /home/docker-compose.yml
+    owner: root:root
+    permissions: '0644'
+  - content: |
+      apt update
+      mkdir -p /home/tt/xx
+      mv /home/docker-compose.yml /home/tt/xxx/docker-compose.yml
+      cd /home/tt/xxx/
+#      docker-compose up -d
+    path: /home/entry.sh
+    owner: root:root
+    permissions: '0755'

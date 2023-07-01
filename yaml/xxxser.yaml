@@ -1,0 +1,87 @@
+#cloud-config
+ssh_pwauth: no
+users:
+  - name: xxxx
+    groups: sudo
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - "ssh-rsa AAxxx xxx@xxx.ru"
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+packages:
+  - htop
+  - syslinux-utils
+  - build-essential
+  - software-properties-common
+  - wget
+  - autoconf
+  - cron
+  - iputils-ping
+  - dpkg-dev
+  - zip
+  - unzip
+  - curl
+  - rsync
+  - ntp
+  - git
+  - ssh
+  - nano
+  - bc
+  - locales
+  - net-tools
+  - libpng-dev
+  - libicu-dev
+  - libxml2-dev
+  - libpq-dev
+  - libjpeg-dev
+  - libfreetype6-dev
+  - libssl-dev
+  - libzip-dev
+  - libmcrypt-dev
+  - libwebp-dev
+  - libgd-dev
+  - libxpm-dev
+  - pip3
+  - awscli
+  - nfs-kernel-server
+  - nfs-common
+write_files:
+  - content: |
+      [default]
+        region=ru-central1
+    path: /home/config
+    owner: root:root
+    permissions: '0644'
+  - content: |
+      #!/bin/sh -u
+
+      #
+      # nfs server
+      #
+
+      apt-get -y install nfs-common nfs-kernel-server
+      mkdir -p "/mnt/xxxx"
+      echo "/mnt/xxxx x/24(rw,async,no_subtree_check,root_squash)" >> /etc/exports
+      echo "/mnt/xxxx x/24(rw,async,no_subtree_check,root_squash)" >> /etc/exports
+      echo "/mnt/xxxx x/32(rw,async,no_subtree_check,root_squash)" >> /etc/exports
+      echo "/mnt/xxxx x/32(rw,async,no_subtree_check,root_squash)" >> /etc/exports
+      exportfs -ra
+
+      # connecting disk
+      # mount /dev/vdc /mnt/xxxx
+
+      systemctl restart nfs-kernel-server
+
+      rm -f /home/entry.sh
+    path: /home/entry.sh
+    owner: root:root
+    permissions: '0755'
+runcmd:
+
+  - mkdir -p /home/scripts
+  - mkdir -p /root/.aws
+  - mv /home/credentials /root/.aws/
+  - mv /home/config /root/.aws/
+  - /bin/sh /home/entry.sh

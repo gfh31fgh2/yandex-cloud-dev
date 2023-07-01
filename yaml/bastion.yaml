@@ -1,0 +1,24 @@
+#cloud-config
+ssh_pwauth: no
+packages:
+  - htop
+  - nfs-common
+  - syslinux-utils
+users:
+  - name: xxxxuser
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - "ssh-rsa Axxxx xxx@xxxx.ru"
+runcmd:
+  - mkdir -p /mnt/rrrnfs
+  - mount -t nfs4 -o nfsvers=4.1,noacl,noatime,nodiratime,rsize=1048576,wsize=1048576 $(gethostip -d rrrnfs.ru-central1.internal):/mnt/nfs/logsvolume /mnt/rrrnfs
+  - mkdir -p /home/tt/
+write_files:
+  - content: |
+      -----BEGIN RSA PRIVATE KEY-----
+      Mxxxx=
+      -----END RSA PRIVATE KEY-----
+    path: /home/tt/ninst
+runcmd:
+  - chmod 0600 /home/tt/ninst

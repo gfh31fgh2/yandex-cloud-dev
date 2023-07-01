@@ -1,0 +1,46 @@
+version: '3.7'
+services:
+  xxxxproxynginx:
+    container_name: xxxxproxynginx
+    image: "cr.yandex/xxxxxx/xxxxproxynginx:latest"
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: always
+    depends_on:
+      - fluentbit
+      - xxxxproxyphp
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: xxxxproxy.app.logs
+    volumes:
+      - /home/www/xxxxproxynginx:/home/www/xxxxproxy
+  xxxxproxyphp:
+    container_name: xxxxproxyphp
+    image: "cr.yandex/xxxxxx/xxxxproxyphp:latest"
+    restart: always
+    depends_on:
+      - fluentbit
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: xxxxproxy.app.logs
+  fluentbit:
+    container_name: fluentbit
+    image: cr.yandex/yc/fluent-bit-plugin-yandex:v2.0.0-fluent-bit-1.9.0
+    ports:
+      - 24224:24224
+      - 24224:24224/udp
+    restart: always
+    environment:
+      YC_GROUP_ID: xxxx
+      AWS_CONFIG_FILE: /home/.aws/config
+      AWS_SHARED_CREDENTIALS_FILE: /home/.aws/credentials
+    volumes:
+      - /etc/fluent-bit:/fluent-bit/etc
+      - /var/log/fluentbit:/var/log/fluentbit
+      - /home/.aws:/home/.aws
+      - /home/www/xxxxproxy:/home/www/xxxxproxy

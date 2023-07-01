@@ -1,0 +1,67 @@
+#cloud-config
+ssh_pwauth: no
+users:
+  - name: xxx
+    groups: sudo
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - "ssh-rsa AAAx xxx@xxx.ru"
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+packages:
+  - htop
+  - build-essential
+  - syslinux-utils
+  - software-properties-common
+  - wget
+  - postfix
+write_files:
+  - content: |
+      ####################################
+      ##
+      # [HTTP] xxx (Redirect 301)
+      ##
+
+      #server {
+      #        listen 80;
+      #        listen [::]:80;
+      #        server_name xxx.ru;
+
+      #        location = /wp-login.php {
+      #                deny  all;
+      #                log_not_found off;
+      #                access_log off;
+      #        }
+
+      #        return 301 https://$host$request_uri;
+      #}
+      # ......... deleted ........
+      # ..........................
+      # ..........................
+      # ..........................
+    path: /home/xxxxxx_nginx.conf
+    owner: root:root
+    permissions: '0644'
+    - content: |
+      <html>
+      <head></head>
+      <body>
+      <p>xxxx</p>
+      </body>
+      </html>
+    path: /home/index.html
+    owner: root:root
+    permissions: '0644'
+runcmd:
+  - mkdir -p /x
+  - mkdir -p /home/www/xxx/check/raw
+  # - .....
+  # - DELETED
+  # - .....
+  - useradd -m -p "xxx" -s /bin/bash xxxx
+  # - .....
+  # - DELETED
+  # - .....
+  - chown www-data:www-data "xxxx"
